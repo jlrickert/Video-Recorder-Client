@@ -5,7 +5,7 @@ import * as path from "path";
 
 import * as HtmlWebpackPlugin from "html-webpack-plugin";
 import * as Webpack from "webpack";
-import * as WebpackServe from "webpack-serve";
+import * as WebpackDevServer from "webpack-dev-server";
 
 const isProduction = process.env.NODE_ENV === "production";
 process.env.WEBPACK_SERVE = process.env.NODE_ENV;
@@ -14,9 +14,9 @@ const config: Webpack.Configuration = {
   target: "web",
   mode: isProduction ? "production" : "development",
   devtool: isProduction ? false : "cheap-module-source-map",
-  entry: "./src/index.ts",
+  entry: { bundle: "./src/bundle.ts", worker: "./src/worker.ts" },
   output: {
-    filename: "bundle.js",
+    filename: "[name].js",
     path: path.resolve(__dirname, "build")
   },
   resolve: {
@@ -81,7 +81,8 @@ const config: Webpack.Configuration = {
   plugins: [
     new HtmlWebpackPlugin({
       inject: true,
-      template: "./index.html"
+      template: "./index.html",
+      chunks: ["bundle"]
     })
   ],
   performance: {
@@ -91,14 +92,22 @@ const config: Webpack.Configuration = {
 
 async function build(): Promise<void> {
   const compiler = Webpack(config);
-  compiler.run(() => {
-    console.log("building");
-  });
+  compiler.run(() => {});
 }
 
 async function watch(): Promise<void> {
-  const res = await WebpackServe({}, { config, clipboard: true });
-  return;
+  const compiler = Webpack(config);
+  const server = new WebpackDevServer(compiler, {
+    allowedHosts: ["localhost", "192.168.1.13", "192.168.1.14"],
+    compress: true,
+    https: {
+      cert: fs.readFileSync(path.resolve(__dirname, "video_streamer.crt")),
+      key: fs.readFileSync(path.resolve(__dirname, "video_streamer.key"))
+    },
+    hot: true
+  });
+  server.listen(8080);
+  // const res = await WebpackServe({}, { config, clipboard: true });
 }
 
 enum Command {
